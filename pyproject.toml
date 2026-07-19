@@ -1,0 +1,81 @@
+[project]
+name = "paper-mono-nerd-patched"
+version = "0.1.0"
+description = "Pinned-input tooling for building Paper Mono with Nerd Fonts glyphs."
+readme = "README.md"
+requires-python = ">=3.13"
+license = "MIT"
+license-files = ["LICENSE", "NOTICE.md"]
+authors = [{ name = "Bjørn Aagaard", email = "aagaardbs@gmail.com" }]
+dependencies = []
+
+[project.scripts]
+paper-mono-build = "paper_mono_nerd_patched.build:main"
+paper-mono-verify = "paper_mono_nerd_patched.verify:main"
+
+[dependency-groups]
+dev = [
+  "poethepoet>=0.48.0",
+  "pyrefly>=1.1.1",
+  "pytest>=9.0.0",
+  "ruff>=0.15.0",
+]
+
+[build-system]
+requires = ["uv_build>=0.11.0,<0.12.0"]
+build-backend = "uv_build"
+
+[tool.poe.tasks]
+all = { sequence = ["build", "verify"], help = "Build and verify all font artifacts." }
+lock = { cmd = "uv lock --check", help = "Check that uv.lock matches pyproject.toml." }
+lint = { cmd = "ruff check .", help = "Lint the project." }
+format = { cmd = "ruff format .", help = "Format the project." }
+format-check = { cmd = "ruff format --check .", help = "Check project formatting." }
+typecheck = { cmd = "pyrefly check", help = "Type-check the project." }
+test = { cmd = "pytest $POE_EXTRA_ARGS", help = "Run tests, optionally with extra pytest arguments." }
+package = { cmd = "uv build --no-sources --out-dir .build/packages", help = "Build the wheel and source distribution." }
+check = { sequence = ["lock", "lint", "format-check", "typecheck", "test", "package"], help = "Run every project check." }
+
+[tool.poe.tasks.build]
+help = "Build the patched fonts."
+cmd = "paper-mono-build --fontforge ${fontforge} --output-dir ${output_dir} --cache-dir ${cache_dir} ${offline:+--offline}"
+args = [
+  { name = "fontforge", options = ["--fontforge"], default = "fontforge" },
+  { name = "output_dir", options = ["--output-dir"], default = "dist" },
+  { name = "cache_dir", options = ["--cache-dir"], default = ".cache" },
+  { name = "offline", options = ["--offline"], type = "boolean" },
+]
+
+[tool.poe.tasks.verify]
+help = "Verify the generated fonts and provenance."
+cmd = "paper-mono-verify --font-dir ${font_dir} --patcher-dir ${patcher_dir}"
+args = [
+  { name = "font_dir", options = ["--font-dir"], default = "dist" },
+  { name = "patcher_dir", options = ["--patcher-dir"], default = ".cache/nerd-fonts-v3.4.0" },
+]
+
+[tool.poe.tasks.clean]
+help = "Remove generated outputs, downloads, and tool caches."
+cmd = """python -c "import shutil; [shutil.rmtree(path, ignore_errors=True) for path in ('dist', '.cache', '.build', 'build', '.pytest_cache', '.ruff_cache')]""""
+
+[tool.pyrefly]
+project-includes = ["src", "tests"]
+project-excludes = [".venv/**", "build/**", "dist/**"]
+python-version = "3.13"
+
+[tool.pytest.ini_options]
+addopts = ["--import-mode=importlib", "-ra"]
+filterwarnings = ["error"]
+minversion = "9.0"
+strict = true
+testpaths = ["tests"]
+
+[tool.ruff]
+target-version = "py313"
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "C4", "N", "PERF", "PIE", "RUF", "SIM", "UP"]
+
+[tool.ruff.format]
+quote-style = "double"
