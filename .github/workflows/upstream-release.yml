@@ -1,0 +1,90 @@
+name: Check for Paper Mono releases
+
+on:
+  schedule:
+    - cron: "17 9 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: paper-mono-upstream-check
+  cancel-in-progress: false
+
+jobs:
+  update:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Check out sources
+        uses: actions/checkout@v4.2.2
+        with:
+          fetch-depth: 0
+
+      - name: Install uv and Python
+        uses: astral-sh/setup-uv@v7
+        with:
+          version: "0.11.29"
+          python-version: "3.13"
+
+      - name: Sync the locked environment
+        run: uv sync --locked
+
+      - name: Check the latest upstream release
+        id: upstream
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: uv run --locked paper-mono-update
+
+      - name: Validate the proposed update
+        if: steps.upstream.outputs.changed == 'true'
+        run: uv run --locked poe check
+
+      - name: Install FontForge
+        if: steps.upstream.outputs.changed == 'true'
+        run: |
+          sudo apt-get update
+          sudo apt-get install --no-install-recommends -y fontforge python3-fontforge
+
+      - name: Build and verify the proposed fonts
+        if: steps.upstream.outputs.changed == 'true'
+        run: uv run --locked poe all
+
+      - name: Create or update the release PR
+        if: steps.upstream.outputs.changed == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          UPSTREAM_COMMIT: ${{ steps.upstream.outputs.commit }}
+          UPSTREAM_RELEASE_URL: ${{ steps.upstream.outputs.release_url }}
+          UPSTREAM_TAG: ${{ steps.upstream.outputs.tag }}
+        run: |
+          branch="automation/paper-mono-${UPSTREAM_TAG}"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout -B "$branch"
+          git add src/paper_mono_nerd_patched/paper-mono.json
+          git commit -m "chore: update Paper Mono to ${UPSTREAM_TAG}"
+          git push --force origin "$branch"
+
+          body="$(cat <<EOF
+          Updates the pinned Paper Mono inputs to [${UPSTREAM_TAG}](${UPSTREAM_RELEASE_URL}).
+
+          - Upstream commit: \`${UPSTREAM_COMMIT}\`
+          - Every static OTF and the upstream license are SHA-256 locked.
+          - Project checks and the complete patched font build passed before this PR was opened.
+
+          Merging this PR triggers the verified font build and publishes a GitHub release.
+          EOF
+          )"
+
+          if gh pr view "$branch" --json number >/dev/null 2>&1; then
+            gh pr edit "$branch" --title "Update Paper Mono to ${UPSTREAM_TAG}" --body "$body"
+          else
+            gh pr create \
+              --base main \
+              --head "$branch" \
+              --title "Update Paper Mono to ${UPSTREAM_TAG}" \
+              --body "$body"
+          fi

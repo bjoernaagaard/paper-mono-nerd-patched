@@ -30,7 +30,7 @@ The build does not track a moving `main` branch or a latest download:
 
 | Input | Pinned ref | Integrity check |
 | --- | --- | --- |
-| Paper Mono static OTFs | `v0.300`, commit `98b402029c787b7c8130f9527ded897c09faacdb` | Per-weight SHA-256 in `src/paper_mono_nerd_patched/config.py` |
+| Paper Mono static OTFs | Latest reviewed upstream release, resolved to an immutable commit | Per-weight SHA-256 in `src/paper_mono_nerd_patched/paper-mono.json` |
 | Nerd Fonts FontPatcher | `v3.4.0`, commit `fa7b859994228a9c8759f99c55a8d31ee92a1b5e` | `a8f11e511ed7c69e96680858c06b50a643ea7752e26d5cd13dd5e5cc53ab1760` |
 
 Inputs are cached under `.cache/`, which is ignored by Git. A build never
@@ -78,10 +78,26 @@ task definitions, and tool configuration live in `pyproject.toml`; `uv.lock` is
 the reproducibility boundary for the environment.
 
 Verification parses the OpenType tables directly, so it does not need
-fonttools. It checks all eight files, basic Paper Mono coverage, the complete
+fonttools. It checks every generated file, basic Paper Mono coverage, the complete
 unique codepoint inventory from Nerd Fonts' pinned `glyphnames.json`, a single
 advance width for every glyph, Nerd Font Mono naming, provenance, and required
 license files.
+
+## Automated releases
+
+The `Check for Paper Mono releases` workflow polls the upstream GitHub releases
+daily and can also be run manually. When it finds a new release, it resolves the
+tag to an immutable commit, hashes every static OTF and the upstream license,
+and opens a pull request containing the new release lock. It refuses to update
+automatically if an already-seen upstream tag moves to another commit.
+
+Merging that pull request triggers `Publish patched font release`, which builds
+and verifies the fonts before publishing a versioned zip and SHA-256 file as a
+GitHub release. The workflow never publishes an unverified font build.
+
+Repository Actions settings must allow GitHub Actions to create pull requests
+for the scheduled updater to open its PR. The workflows use only the repository's
+built-in `GITHUB_TOKEN`; no additional secret is required.
 
 ## Attribution
 

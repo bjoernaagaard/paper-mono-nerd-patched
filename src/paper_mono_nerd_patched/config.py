@@ -2,15 +2,9 @@
 
 from __future__ import annotations
 
+import json
 from dataclasses import dataclass
-
-PAPER_MONO_TAG = "v0.300"
-PAPER_MONO_COMMIT = "98b402029c787b7c8130f9527ded897c09faacdb"
-PAPER_MONO_BASE_URL = (
-    f"https://raw.githubusercontent.com/paper-design/paper-mono/{PAPER_MONO_COMMIT}"
-)
-PAPER_MONO_LICENSE_URL = f"{PAPER_MONO_BASE_URL}/LICENSE.txt"
-PAPER_MONO_LICENSE_SHA256 = "6c09ddf064a0b0f7cfffd555c674bfa08bb1e1a75a3e4b7b1a63c8f7cbb5a1f2"
+from pathlib import Path
 
 NERD_FONTS_VERSION = "v3.4.0"
 NERD_FONTS_COMMIT = "fa7b859994228a9c8759f99c55a8d31ee92a1b5e"
@@ -38,48 +32,41 @@ class SourceFont:
         return f"{PAPER_MONO_BASE_URL}/fonts/otf/{self.filename}"
 
 
-SOURCE_FONTS = (
-    SourceFont(
-        "Thin",
-        "PaperMono-Thin.otf",
-        "8ed242877a84dd5cf56b19b85c2755c583c65e5838e7d4be1703419096719361",
-    ),
-    SourceFont(
-        "ExtraLight",
-        "PaperMono-ExtraLight.otf",
-        "143f78efe26255eb88dd80907252db97b6603549874a06eb27b608602a2f59c9",
-    ),
-    SourceFont(
-        "Light",
-        "PaperMono-Light.otf",
-        "c6b86905a88201ff829761448f051c417283f593507776aa160aa56110d8fc4c",
-    ),
-    SourceFont(
-        "Regular",
-        "PaperMono-Regular.otf",
-        "7f44079090c28c68e8e9594df990e0cdd6c41167c4bbf94c8b5fcce043df691d",
-    ),
-    SourceFont(
-        "Medium",
-        "PaperMono-Medium.otf",
-        "6d9a2a6b31ccd0d85547d803dabd5766daaf70e6997c5cde8c04398988b67971",
-    ),
-    SourceFont(
-        "SemiBold",
-        "PaperMono-SemiBold.otf",
-        "dbc770b524cfb235d818960be6d45bd58282f76488bb462f4898b24fcbf2cd76",
-    ),
-    SourceFont(
-        "Bold",
-        "PaperMono-Bold.otf",
-        "8e1a0527308221488903ebdf8b5f4293323b9450c4eec448f1d3367d949eb6a5",
-    ),
-    SourceFont(
-        "ExtraBold",
-        "PaperMono-ExtraBold.otf",
-        "c21ed8ebbd5b3cdeb9551b2e5e647929d1fedf16520822717ccafbc808c4ff1c",
-    ),
+def _load_paper_mono_lock() -> tuple[str, str, str, tuple[SourceFont, ...]]:
+    """Load and validate the committed upstream release lock."""
+
+    path = Path(__file__).with_name("paper-mono.json")
+    try:
+        value = json.loads(path.read_text(encoding="utf-8"))
+        tag = value["tag"]
+        commit = value["commit"]
+        license_sha256 = value["license_sha256"]
+        fonts = tuple(
+            SourceFont(font["weight"], font["filename"], font["sha256"]) for font in value["fonts"]
+        )
+    except (KeyError, OSError, TypeError, json.JSONDecodeError) as exc:
+        raise RuntimeError(f"invalid Paper Mono release lock: {path}") from exc
+    values = (tag, commit, license_sha256)
+    if not all(isinstance(item, str) and item for item in values) or not fonts:
+        raise RuntimeError(f"invalid Paper Mono release lock: {path}")
+    if not all(
+        font.weight and font.filename.startswith("PaperMono-") and len(font.sha256) == 64
+        for font in fonts
+    ):
+        raise RuntimeError(f"invalid Paper Mono font entry in release lock: {path}")
+    return tag, commit, license_sha256, fonts
+
+
+(
+    PAPER_MONO_TAG,
+    PAPER_MONO_COMMIT,
+    PAPER_MONO_LICENSE_SHA256,
+    SOURCE_FONTS,
+) = _load_paper_mono_lock()
+PAPER_MONO_BASE_URL = (
+    f"https://raw.githubusercontent.com/paper-design/paper-mono/{PAPER_MONO_COMMIT}"
 )
+PAPER_MONO_LICENSE_URL = f"{PAPER_MONO_BASE_URL}/LICENSE.txt"
 
 OUTPUT_FONT_NAMES = tuple(f"PaperMonoNerdFontMono-{source.weight}.otf" for source in SOURCE_FONTS)
 PATCHER_CACHE_DIR_NAME = f"nerd-fonts-{NERD_FONTS_VERSION}"

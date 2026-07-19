@@ -1,0 +1,48 @@
+{
+  "schema": 1,
+  "tag": "v0.300",
+  "commit": "98b402029c787b7c8130f9527ded897c09faacdb",
+  "license_sha256": "6c09ddf064a0b0f7cfffd555c674bfa08bb1e1a75a3e4b7b1a63c8f7cbb5a1f2",
+  "fonts": [
+    {
+      "weight": "Thin",
+      "filename": "PaperMono-Thin.otf",
+      "sha256": "8ed242877a84dd5cf56b19b85c2755c583c65e5838e7d4be1703419096719361"
+    },
+    {
+      "weight": "ExtraLight",
+      "filename": "PaperMono-ExtraLight.otf",
+      "sha256": "143f78efe26255eb88dd80907252db97b6603549874a06eb27b608602a2f59c9"
+    },
+    {
+      "weight": "Light",
+      "filename": "PaperMono-Light.otf",
+      "sha256": "c6b86905a88201ff829761448f051c417283f593507776aa160aa56110d8fc4c"
+    },
+    {
+      "weight": "Regular",
+      "filename": "PaperMono-Regular.otf",
+      "sha256": "7f44079090c28c68e8e9594df990e0cdd6c41167c4bbf94c8b5fcce043df691d"
+    },
+    {
+      "weight": "Medium",
+      "filename": "PaperMono-Medium.otf",
+      "sha256": "6d9a2a6b31ccd0d85547d803dabd5766daaf70e6997c5cde8c04398988b67971"
+    },
+    {
+      "weight": "SemiBold",
+      "filename": "PaperMono-SemiBold.otf",
+      "sha256": "dbc770b524cfb235d818960be6d45bd58282f76488bb462f4898b24fcbf2cd76"
+    },
+    {
+      "weight": "Bold",
+      "filename": "PaperMono-Bold.otf",
+      "sha256": "8e1a0527308221488903ebdf8b5f4293323b9450c4eec448f1d3367d949eb6a5"
+    },
+    {
+      "weight": "ExtraBold",
+      "filename": "PaperMono-ExtraBold.otf",
+      "sha256": "c21ed8ebbd5b3cdeb9551b2e5e647929d1fedf16520822717ccafbc808c4ff1c"
+    }
+  ]
+}

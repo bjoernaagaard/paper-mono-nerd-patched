@@ -11,6 +11,7 @@ dependencies = []
 
 [project.scripts]
 paper-mono-build = "paper_mono_nerd_patched.build:main"
+paper-mono-update = "paper_mono_nerd_patched.upstream:main"
 paper-mono-verify = "paper_mono_nerd_patched.verify:main"
 
 [dependency-groups]
@@ -34,6 +35,7 @@ format-check = { cmd = "ruff format --check .", help = "Check project formatting
 typecheck = { cmd = "pyrefly check", help = "Type-check the project." }
 test = { cmd = "pytest $POE_EXTRA_ARGS", help = "Run tests, optionally with extra pytest arguments." }
 package = { cmd = "uv build --no-sources --out-dir .build/packages", help = "Build the wheel and source distribution." }
+update-upstream = { cmd = "paper-mono-update", help = "Update the lock to the latest Paper Mono release." }
 check = { sequence = ["lock", "lint", "format-check", "typecheck", "test", "package"], help = "Run every project check." }
 
 [tool.poe.tasks.build]

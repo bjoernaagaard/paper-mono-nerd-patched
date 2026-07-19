@@ -1,0 +1,114 @@
+name: Publish patched font release
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "src/paper_mono_nerd_patched/paper-mono.json"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: paper-mono-release
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - name: Check out sources
+        uses: actions/checkout@v4.2.2
+
+      - name: Install uv and Python
+        uses: astral-sh/setup-uv@v7
+        with:
+          version: "0.11.29"
+          python-version: "3.13"
+
+      - name: Sync the locked environment
+        run: uv sync --locked
+
+      - name: Read release identity
+        id: release
+        run: |
+          uv run --locked python - <<'PY'
+          import os
+          from pathlib import Path
+
+          from paper_mono_nerd_patched.config import (
+              NERD_FONTS_VERSION,
+              PAPER_MONO_COMMIT,
+              PAPER_MONO_TAG,
+          )
+
+          values = {
+              "archive": f"PaperMonoNerdFontMono-{PAPER_MONO_TAG}.zip",
+              "commit": PAPER_MONO_COMMIT,
+              "nerd_fonts_version": NERD_FONTS_VERSION,
+              "release_tag": f"paper-mono-{PAPER_MONO_TAG}-nerd-fonts-{NERD_FONTS_VERSION}",
+              "upstream_tag": PAPER_MONO_TAG,
+          }
+          with Path(os.environ["GITHUB_OUTPUT"]).open("a", encoding="utf-8") as output:
+              for key, value in values.items():
+                  output.write(f"{key}={value}\n")
+          PY
+
+      - name: Check whether the release already exists
+        id: existing
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ steps.release.outputs.release_tag }}
+        run: |
+          if gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Install FontForge
+        if: steps.existing.outputs.exists == 'false'
+        run: |
+          sudo apt-get update
+          sudo apt-get install --no-install-recommends -y fontforge python3-fontforge
+
+      - name: Build and verify fonts
+        if: steps.existing.outputs.exists == 'false'
+        run: uv run --locked poe all
+
+      - name: Create release archive
+        if: steps.existing.outputs.exists == 'false'
+        env:
+          ARCHIVE: ${{ steps.release.outputs.archive }}
+        run: |
+          (cd dist && zip -qr "../${ARCHIVE}" .)
+          shasum -a 256 "$ARCHIVE" > "${ARCHIVE}.sha256"
+
+      - name: Publish GitHub release
+        if: steps.existing.outputs.exists == 'false'
+        env:
+          ARCHIVE: ${{ steps.release.outputs.archive }}
+          GH_TOKEN: ${{ github.token }}
+          NERD_FONTS_VERSION: ${{ steps.release.outputs.nerd_fonts_version }}
+          PAPER_MONO_COMMIT: ${{ steps.release.outputs.commit }}
+          PAPER_MONO_TAG: ${{ steps.release.outputs.upstream_tag }}
+          RELEASE_TAG: ${{ steps.release.outputs.release_tag }}
+        run: |
+          cat > release-notes.md <<EOF
+          Paper Mono Nerd Font Mono built from:
+
+          - [Paper Mono ${PAPER_MONO_TAG}](https://github.com/paper-design/paper-mono/releases/tag/${PAPER_MONO_TAG}) at commit \`${PAPER_MONO_COMMIT}\`
+          - Nerd Fonts ${NERD_FONTS_VERSION}
+          - Font Patcher flags: \`--complete --mono\`
+
+          The archive contains all patched static OTF weights, the build manifest, and required upstream licenses.
+          EOF
+
+          gh release create "$RELEASE_TAG" \
+            "$ARCHIVE#Patched OTF font bundle" \
+            "${ARCHIVE}.sha256#SHA-256 checksum" \
+            --target "$GITHUB_SHA" \
+            --title "Paper Mono Nerd Patched ${PAPER_MONO_TAG}" \
+            --notes-file release-notes.md
